@@ -1,0 +1,162 @@
+<template>
+	<div>
+		<!-- TIÊU ĐỀ + TÌM KIẾM + ADD -->
+		<div class="top-bar">
+			<h2 class="text-h4 font-weight-bold text-white text-center mb-6">
+				ENGLISH - VIETNAMESE DICTIONARY
+			</h2>
+			<v-row>
+				<v-col>
+					<v-btn @click.stop="onGoBack(topic)" color="#a6bded">TODAY'S DISCUSSION TOPIC
+						<uc-icon name="eye" />
+					</v-btn>
+				</v-col>
+				<v-col>
+					<v-btn @click.stop="goToTest(topic)" color="#d3a6ed"> VOCABULARY ASSESSMENT
+						<uc-icon name="book-education-outline" />
+					</v-btn>
+				</v-col>
+				<v-col>
+					<v-btn @click.stop="goToMultiTopicEnglish(topic)" color="#a6dfed">WIDE - RANGE VOCABULARY
+						<uc-icon name="book-multiple-outline" />
+					</v-btn>
+				</v-col>
+			</v-row>
+			<v-row>
+				<!-- màu cho thanh tìm kiếm eda6a7 -->
+				<!-- @keyup.enter="lookupWord": dùng để khi enter là gọi hàm search -->
+				<!-- @click:clear="clearAll": dùng để xóa dữ liệu -->
+				<v-col>
+					<v-text-field v-model="searchTopic" label="What do you want to know ?" single-line density="compact"
+						class="cloud-input mx-auto" style="max-width: 350px;" clearable hide-details
+						append-inner-icon="magnify" @keyup.enter="lookupWord" @click:clear="clearAll" />
+				</v-col>
+			</v-row>
+			<div v-if="searchTopic && meanings.length" class="text-center my-8">
+				<b style="color:#eda6de" class="text-h3 font-weight-bold">
+					{{ searchTopic.trim() }}
+				</b>
+				<button @click="speakText(searchTopic.trim())">
+					<uc-icon name="volume-high" />
+				</button>
+			</div>
+			<div v-for="(item, index) in meanings" :key="index">
+				<b>{{ index + 1 }}. ({{ item.type }}) {{ item.definition }}</b>
+				<button @click="speakText(item.definition)">
+					<uc-icon name="volume-high" />
+				</button>
+				<br>
+				<i style="color: #ffd;">→ {{ item.example || "No example" }}</i>
+				<button @click="speakText(item.example)">
+					<uc-icon name="volume-high" />
+				</button>
+			</div>
+		</div>
+	</div>
+</template>
+<script>
+	export default {
+		data() {
+			return {
+				searchTopic: '',
+				result: '',
+				meanings: [],
+			}
+		},
+		computed: {},
+		mounted() { },
+		methods: {
+			goToTest(topic) {
+				const url = `https://iotdev.zentea.vn/test-tu-vung?testid=`;
+				window.open(url, '_blank'); // hoặc _self nếu muốn mở cùng tab
+			},
+			onGoBack(topic) {
+				const url = `https://iotdev.zentea.vn/clone-vue?chudeid=`;
+				window.open(url, '_blank');
+			},
+			goToMultiTopicEnglish(topic) {
+				const url = `https://iotdev.zentea.vn/tuvungthamkhao`;
+				window.open(url, '_blank');
+			},
+			clearAll() {
+				this.searchTopic = ''
+				this.result = ''
+				this.meanings = []
+			},
+			lookupWord: function () {
+				const $this = this
+				const word = $this.searchTopic
+				$.ajax({
+					url: `https://translate.googleapis.com/translate_a/single`,
+					method: "GET",
+					data: {
+						client: "gtx",
+						sl: "en", // source language: English
+						tl: "vi", // target language: Vietnamese
+						q: word
+					},
+					success: function (res) {
+						if (res && res[0]) {
+							const translatedText = res[0].map(item => item[0]).join("");
+							$this.result = translatedText
+						} else {
+						}
+					},
+					error: function (err) {
+						console.error(err);
+					}
+				});
+				$.ajax({
+					url: `https://api.dictionaryapi.dev/api/v2/entries/en/` + word,
+					method: "GET",
+					success: function (res) {
+						if (res && res[0]) {
+							const data = res[0];
+							// Lấy nghĩa verb
+							const allMeanings = [];
+	
+							data.meanings.forEach(m => {
+								m.definitions.forEach(d => {
+									allMeanings.push({
+										type: m.partOfSpeech,
+										definition: d.definition,
+										example: d.example || ""
+									});
+								});
+							});
+							$this.meanings = allMeanings;
+							// Lấy definition + example
+							const verbDefinitions = verbMeaning.definitions.map(d => ({
+								definition: d.definition,
+								example: d.example || ""
+							}));
+							// Gán vào Vue
+							$this.meanings = verbDefinitions;
+						}
+					},
+					error: function (err) {
+						// console.error(err);
+					}
+				});
+			},
+			speakText(text) {
+				const vietnameseRegex =
+					/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]/;
+				if (!("speechSynthesis" in window)) return;
+				const words = text.split(/\s+/);
+				const englishWords = words.filter(w => !vietnameseRegex.test(w));
+				const filteredText = englishWords.join(" ");
+				if (!filteredText.trim()) {
+					console.log("Không có tiếng Anh để đọc");
+					return;
+				}
+				const utterance = new SpeechSynthesisUtterance(filteredText);
+				utterance.lang = "en-US";
+				utterance.rate = 0.6;
+				utterance.pitch = 1;
+				window.speechSynthesis.cancel();
+				window.speechSynthesis.speak(utterance);
+			}
+		}
+	}
+</script>
