@@ -1,0 +1,330 @@
+<template>
+	<div class="universe">
+		<!-- TIÊU ĐỀ + TÌM KIẾM + ADD -->
+		<div class="top-bar">
+			<h2 class="text-h4 font-weight-bold text-white text-center mb-6">
+				VOCABULARY ASSESSMENT
+			</h2>
+		</div>
+		<!-- DANH SÁCH CHỦ ĐỀ – MỖI CHỦ ĐỀ 1 CARD -->
+		<v-container fluid class="pa-4">
+			<v-row>
+				<v-col v-for="(topic, index) in filteredTopics" :key="topic.ChuDeID" cols="12" sm="6" md="4" lg="3">
+					<v-card class="topic-card rainbow-gradient" :style="getRainbowStyle(index)"
+						@click="selectTopic(topic)" elevation="8">
+						<v-card-title class="text-h6 text-white font-weight-bold pa-3">
+							{{ topic.TenChuDe }}
+							<button @click="speakText(topic.TenChuDe)">
+								<uc-icon name="volume-high" />
+							</button>
+						</v-card-title>
+						<v-card-text class="text-caption" style="color:#b3e5fc;">
+							{{ topic.MoTaChuDe || 'Không có mô tả' }}
+						</v-card-text>
+						<v-spacer />
+					</v-card>
+				</v-col>
+			</v-row>
+		</v-container>
+		<!-- PHẦN TỪ VỰNG (khi chọn chủ đề) -->
+		<!-- PHẦN TỪ VỰNG (khi chọn chủ đề) -->
+		<v-expand-transition>
+			<div v-if="selectedTopic.ChuDeID" class="vocab-section position-relative">
+				<!-- Nút đóng nằm ngoài, góc trên phải -->
+				<div class="position-absolute" style="top: 12px; right: 12px; z-index: 10;">
+					<v-btn @click="selectedTopic = {}; vocabList = []" icon small fab color="white" class="bg-black-50">
+						<uc-icon name="close" />
+					</v-btn>
+				</div>
+				<!-- Header: Tên chủ đề -->
+				<div class="pa-5 text-center">
+					<h3 class="text-h5 font-weight-bold text-white mb-1">
+						Từ vựng:
+						<span style="color:#90caf9;">{{ selectedTopic.TenChuDe }}</span>
+					</h3>
+				</div>
+				<!-- Hiển thị điểm số nhỏ gọn, đẹp -->
+				<div v-if="vocabList.length > 0" class="mx-6 mb-4">
+					<div class="d-flex justify-space-between align-center pa-3 rounded-lg"
+						style="background: rgba(255,255,255,0.08); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1);">
+
+						<div class="text-left">
+							<div class="text-caption text-grey-lighten-2">Đã làm</div>
+							<div class="text-h6 font-weight-bold text-white">
+								{{ correctAnswers }} / {{ totalQuestions }}
+							</div>
+						</div>
+						<div class="text-center">
+							<div class="text-caption text-grey-lighten-2 mb-1">Điểm của bạn</div>
+							<div class="text-h4 font-weight-black"
+								:style="{ color: scorePercent >= 90 ? '#69f0ae' : scorePercent >= 70 ? '#a5d8ff' : scorePercent >= 50 ? '#ffe082' : '#ff8a80' }">
+								{{ scorePercent }}%
+							</div>
+						</div>
+						<div class="text-right">
+							<div class="text-caption text-grey-lighten-2">Tỷ lệ sai</div>
+							<div class="text-h6 font-weight-bold"
+								:style="{ color: wrongPercent >= 50 ? '#ff5252' : wrongPercent >= 30 ? '#ff9800' : '#69f0ae' }">
+								{{ wrongPercent }}%
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- Danh sách từ vựng -->
+				<v-card class="vocab-card break-line mx-4 mb-6" elevation="6" rounded="xl">
+					<div v-for="item in vocabList" :key="item.id" class="pa-4 border-b">
+						<div class="d-flex align-center" style="gap: 16px;">
+							<!-- Từ tiếng Anh + loa -->
+							<div class="d-flex align-center" style="flex: 1; min-width: 120px;">
+								<strong class="text-white text-h6">{{ item.name }}</strong>
+								<button @click.stop="speakText(item.name)" class="ml-3">
+									<uc-icon name="volume-high" color="white" />
+								</button>
+							</div>
+							<!-- 4 đáp án -->
+							<div class="d-flex flex-wrap justify-center gap-3" style="flex: 3;">
+								<v-chip v-for="(asw, i) in item.child" :key="i" :color="getChipColor(i)"
+									class="chip-animated white--text font-weight-medium"
+									style="width: 180px; height: 48px; font-size: 15px; cursor: pointer;"
+									@click="checkAnswer(item, asw)"
+									:class="{'correct-chip': item.selected === asw && asw === item.mean,'wrong-chip': item.selected === asw && asw !== item.mean, 'v-chip--outlined': !item.selected}">
+									{{ asw }}
+								</v-chip>
+							</div>
+						</div>
+					</div>
+				</v-card>
+			</div>
+		</v-expand-transition>
+	</div>
+</template>
+<script>
+	export default {
+		data() {
+			return {
+				chipColors: [
+					'#FFCDD2', '#F8BBD0', '#E1BEE7', '#D1C4E9',
+					'#C5CAE9', '#BBDEFB', '#B3E5FC', '#B2EBF2',
+					'#B2DFDB', '#C8E6C9', '#DCEDC8', '#F0F4C3',
+					'#FFECB3', '#FFE0B2', '#FFCCBC'
+				],
+	
+				topics: [],
+				selectedTopic: {},
+				searchTopic: '',
+				dialogTopic: false,
+				formTopic: { ChuDeID: 0, TenChuDe: '', MoTaChuDe: '' },
+				vocabList: [],
+				searchVocab: '',
+				dialogVocab: false,
+				formVocab: { TiengAnhID: 0, TuVung: '', NghiaDenTA: '', NghiaDenTV: '', NghiaBong: '', NghiaBongTA: '', ViDuNghiaBong: '', ViDuNghiaDen: '', TuTraiNghia: '', ViDuTuTraiNghia: '', TuDongNghia: '', ViDuTuDongNghia: '' }
+			}
+		},
+		computed: {
+			sortedTopics() {
+				return [...this.topics].sort((a, b) => {
+					const nameA = (a.TenChuDe || '').trim().toLowerCase()
+					const nameB = (b.TenChuDe || '').trim().toLowerCase()
+					return nameA.localeCompare(nameB)
+				})
+			},
+			sortedVocabList() {
+				const arr = [...this.vocabList]
+	
+				// Random theo NghiaDenTV (lộn xộn hoàn toàn)
+				arr.sort(() => Math.random() - 0.5)
+	
+				return arr
+			},
+			// Tìm kiếm 
+			filteredTopics() {
+				if (!this.searchTopic) return this.sortedTopics
+				return this.sortedTopics.filter(t =>
+					t.TenChuDe.toLowerCase().includes(this.searchTopic.toLowerCase())
+				)
+			},
+			totalQuestions() {
+				return this.vocabList.length; // tổng số câu
+			},
+			correctAnswers() {
+				return this.vocabList.filter(item => item.isCorrect).length; // số câu đúng
+			},
+			scorePercent() {
+				if (!this.totalQuestions) return 0;
+				return Math.round((this.correctAnswers / this.totalQuestions) * 100);
+			},
+			wrongPercent() {
+				if (!this.totalQuestions) return 0;
+				return 100 - this.scorePercent; // hoặc tính trực tiếp: Math.round(((this.totalQuestions - this.correctAnswers) / this.totalQuestions) * 100)
+			}
+		},
+		mounted() {
+			this.getTopics()
+	
+		},
+		methods: {
+			getTopics() {
+				// Tạo 2 promise
+				const topicsPromise = new Promise(resolve => {
+					ajaxCALL(vueData.v_Set.apiDomain + '/iotdev/auth/ChuDeTiengAnh_Select', {
+						SearchKeyword: this.searchTopic
+					}, res => resolve(res.data || []))
+				})
+	
+				const vocabPromise = new Promise(resolve => {
+					ajaxCALL(vueData.v_Set.apiDomain + '/iotdev/auth/TiengAnh_Select', {
+						ChuDeID: 0, SearchKeyword: ''
+					}, res => resolve(res.data || []))
+				})
+	
+				// Đợi cả 2 về
+				Promise.all([topicsPromise, vocabPromise])
+					.then(([topics, allVocab]) => {
+	
+						this.topics = topics.map(t => ({
+							...t,
+							SoTu: allVocab.filter(v => v.ChuDeID == t.ChuDeID).length
+						}))
+						if (parseInt(vueData.TestID) > 0) {
+							const item = this.topics.find(i => i.ChuDeID === parseInt(vueData.TestID))
+							console.log("itemmmmmmmmmmmmmmmmmmm", item)
+							this.selectTopic(item)
+						}
+					})
+					.catch(err => {
+						console.error('Lỗi tải dữ liệu:', err)
+						this.topics = []
+					})
+			},
+			getRainbowStyle(index) {
+				const hue = (index * 47 + Date.now() / 50) % 360 // Đổi màu từ từ
+				return {
+					'--hue': hue,
+					background: `linear-gradient(135deg,  hsla(${hue}, 60%, 25%, 0.25),  hsla(${(hue + 90) % 360}, 60%, 20%, 0.2) )`,
+					animation: `rainbow-shift 8s ease-in-out infinite`
+				}
+			},
+			selectTopic(item) {
+				this.selectedTopic = { ...item }
+				this.getVocab()
+			},
+	
+			// Anh Nhựt làm render 3 đáp án sai - 1 đáp án đúng
+			getVocab() {
+				if (!this.selectedTopic.ChuDeID) return;
+	
+				ajaxCALL(vueData.v_Set.apiDomain + '/iotdev/auth/TiengAnh_Select', {
+					ChuDeID: this.selectedTopic.ChuDeID,
+					SearchKeyword: this.searchVocab
+				}, res => {
+					const list = res.data ?? []
+					if (list.length < 4) {
+						alert("Cần ít nhất 4 từ để tạo 4 đáp án!");
+						this.vocabList = [];
+						return;
+					}
+					// Tạo mảng tất cả nghĩa để dễ lấy ngẫu nhiên đáp án sai 
+					const allMeanings = list.map(item => ({
+						id: item.TiengAnhID,
+						mean: item.NghiaDenTV
+					}));
+					// Hàm lấy 3 nghĩa sai ngẫu nhiên (khác với nghĩa đúng)
+					const getThreeWrongAnswers = (correctMean) => {
+						const wrongs = allMeanings
+							.filter(x => x.mean !== correctMean) // loại nghĩa đúng
+							.sort(() => Math.random() - 0.5) // xáo trộn
+							.slice(0, 3) // lấy 3 cái đầu
+							.map(x => x.mean);
+						return wrongs;
+					};
+					// Tạo danh sách kết quả cuối cùng
+					const resultData = list.map(item => {
+						const correctMean = item.NghiaDenTV;
+	
+						// Lấy 3 nghĩa sai
+						const wrongMeans = getThreeWrongAnswers(correctMean);
+	
+						// Tạo mảng 4 đáp án: 3 sai + 1 đúng
+						const fourOptions = [...wrongMeans, correctMean];
+	
+						// Xáo trộn thứ tự 4 đáp án
+						for (let i = fourOptions.length - 1; i > 0; i--) {
+							const j = Math.floor(Math.random() * (i + 1));
+							[fourOptions[i], fourOptions[j]] = [fourOptions[j], fourOptions[i]];
+						}
+	
+						return {
+							id: item.TiengAnhID,
+							name: item.TuVung,
+							mean: item.NghiaDenTV, // nghĩa đúng (dùng để kiểm tra)
+							child: fourOptions // 4 đáp án đã xáo trộn
+						};
+					});
+	
+					// Gán vào data của Vue
+					this.vocabList = resultData;
+					// Chỉ mới render từ nghĩa đen, chưa render đúng 3 từ sai và 1 từ đúng
+					// const resultData = []
+					// list.forEach(item => {
+					// 	const childRandom = []
+					// 	const obj = {
+					// 		id: item.TiengAnhID,
+					// 		name: item.TuVung,
+					// 		mean: item.NghiaDenTV,
+					// 		child: []
+					// 	}
+					// })
+					// console.log("listlistlistlistlist", list)
+					// // Tách danh sách Nghĩa Đen ra
+					// const meanings = list.map(item => item.NghiaDenTV);
+	
+					// // Shuffle Nghĩa Đen
+					// for (let i = meanings.length - 1; i > 0; i--) {
+					// 	const j = Math.floor(Math.random() * (i + 1));
+					// 	[meanings[i], meanings[j]] = [meanings[j], meanings[i]];
+					// }
+	
+					// // Gán lại nghĩa đen theo thứ tự shuffle
+					// this.vocabList = list.map((item, idx) => ({
+					// 	...item,
+					// 	NghiaDenTV: meanings[idx]
+					// }));
+				});
+			},
+			// Đổi màu v-chip
+			getChipColor(index) {
+				return this.chipColors[index % this.chipColors.length]
+			},
+			// Kiểm tra sau khi làm
+			checkAnswer(vocabItem, selectedAnswer) {
+				vocabItem.selected = selectedAnswer; // lưu để đổi màu
+	
+				if (selectedAnswer === vocabItem.mean) {
+					this.$toast?.success("Đúng rồi!");
+					vocabItem.isCorrect = true;
+				} else {
+					this.$toast?.error("Sai mất rồi!");
+					vocabItem.isCorrect = false;
+				}
+			},
+			speakText(text) {
+				const vietnameseRegex =
+					/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]/;
+				if (!("speechSynthesis" in window)) return;
+				const words = text.split(/\s+/);
+				const englishWords = words.filter(w => !vietnameseRegex.test(w));
+				const filteredText = englishWords.join(" ");
+				if (!filteredText.trim()) {
+					console.log("Không có tiếng Anh để đọc");
+					return;
+				}
+				const utterance = new SpeechSynthesisUtterance(filteredText);
+				utterance.lang = "en-US";
+				utterance.rate = 0.6;
+				utterance.pitch = 1;
+				window.speechSynthesis.cancel();
+				window.speechSynthesis.speak(utterance);
+			}
+		}
+	}
+</script>
