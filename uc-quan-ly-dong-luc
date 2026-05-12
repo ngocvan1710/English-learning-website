@@ -1,0 +1,386 @@
+<template>
+	<div>
+		<!-- TIÊU ĐỀ + TÌM KIẾM + ADD -->
+		<div class="top-bar">
+			<h2 class="text-h4 font-weight-bold text-white text-center mb-6">
+				MOTIVATION - YOUR GUIDE TO A STRONGER FUTURE
+			</h2>
+			<v-row>
+				<v-col cols="3">
+					<v-btn @click="resetSelection" color="#90b3f9" text small>
+						<uc-icon name="arrow-left-circle-outline" class="mr-1"></uc-icon>Quay lại
+					</v-btn>
+				</v-col>
+				<v-col cols="6">
+					<v-text-field v-model="searchTopic" label="Tìm chủ đề..." single-line density="compact"
+						class="cloud-input mx-auto" style="max-width: 350px;" clearable hide-details
+						append-inner-icon="magnify" @click:append-inner="getTopics" />
+				</v-col>
+				<v-col cols="3">
+					<v-btn @click.stop="openAddTopic" color="#90caf9">
+						<uc-icon name="plus" class="mr-1" /> Thêm chủ đề động lực
+					</v-btn>
+				</v-col>
+			</v-row>
+		</div>
+		<div>
+		</div>
+		<!-- DANH SÁCH CHỦ ĐỀ – MỖI CHỦ ĐỀ 1 CARD -->
+		<v-container fluid class="pa-4">
+			<v-row>
+				<v-col v-for="(topic, index) in filteredTopics" :key="topic.ChuDeID" cols="12" sm="6" md="4" lg="3">
+					<v-card class="topic-card rainbow-gradient" :style="getRainbowStyle(index)"
+						@click="selectTopic(topic)" elevation="8">
+						<v-card-title class="text-h6 text-white font-weight-bold pa-3">
+							{{ topic.TenChuDe }}
+							<button @click="speakText(topic.TenChuDe)">
+								<uc-icon name="volume-high" />
+							</button>
+						</v-card-title>
+						<v-card-text class="text-caption" style="color:#b3e5fc;">
+							{{ topic.MoTaChuDe || 'Không có mô tả' }}
+						</v-card-text>
+						<v-card-actions class="pa-3">
+							<v-btn @click.stop="goToMotivation(topic)" icon small color="#eda6c2">
+								<uc-icon name="heart" />
+							</v-btn>
+							<v-btn @click.stop="goToSearch(topic)" icon small color="#ffd">
+								<uc-icon name="book-search-outline" />
+							</v-btn>
+							<v-btn @click.stop="editTopic(topic)" icon small color="#faba9d">
+								<uc-icon name="pencil-outline" />
+							</v-btn>
+							<v-btn @click.stop="deleteTopic(topic)" icon small color="#f85149">
+								<uc-icon name="trash-can-outline" />
+							</v-btn>
+						</v-card-actions>
+					</v-card>
+				</v-col>
+			</v-row>
+		</v-container>
+		<!-- PHẦN TỪ VỰNG (khi chọn chủ đề) -->
+		<v-expand-transition>
+			<div v-if="selectedTopic.ChuDeID" class="vocab-section">
+				<div class="d-flex align-center justify-space-between pa-4">
+					<div>
+						<strong class="text-white text-h6">Chủ đề động lực nè:</strong>
+						<span class="ml-2" style="color:#90caf9;">{{ selectedTopic.TenChuDe }}</span>
+					</div>
+					<div class="d-flex align-center gap-3">
+						<v-text-field v-model="searchVocab" label="Tìm từ..." single-line density="compact"
+							class="cloud-input mx-auto" width="200px" clearable hide-details append-inner-icon="magnify"
+							@click:append-inner="getVocab" />
+						<v-btn @click="openAddVocab" color="#238636" class="text-white" dark small>
+							<uc-icon name="plus" class="mr-1 text-white" /> Thêm động lực hỏoo
+						</v-btn>
+						<v-btn @click="selectedTopic = {}; vocabList = []" icon small color="grey">
+							<uc-icon name="close" />
+						</v-btn>
+					</div>
+				</div>
+				<v-card class="vocab-card break-line">
+					<v-data-table :headers="vocabHeaders" :items="sortedVocabList" :search="searchVocab"
+						hide-default-footer :items-per-page="-1" class="transparent-table" density="compact">
+						<template v-slot:item="{ item, index }">
+							<tr class="vocab-row">
+								<td class="text-center"><strong class="text-white">{{ index + 1 }}</strong></td>
+								<td><strong class="text-white">{{ item.DongLucTA }}</strong>
+									<button @click="speakText(item.DongLucTA)">
+										<uc-icon name="volume-high" color="white" />
+									</button>
+								</td>
+								<td style="color:#b3e5fc;">{{ item.DongLucTV || '-' }}</td>
+								<td style="color:#b3e5fc;">{{ item.TuVung || '-' }}
+									<button @click="speakText(item.TuVung)">
+										<uc-icon name="volume-high" />
+									</button>
+								</td>
+								<td class="text-center">
+									<div class="action-buttons d-flex justify-center gap-4">
+										<v-btn @click="editVocab(item)" color="#58a6ff" variant="tonal" icon
+											size="small" class="rounded-circle">
+											<v-icon size="18">mdi-pencil</v-icon>
+										</v-btn>
+
+										<v-btn @click="deleteVocab(item)" color="#f85149" variant="tonal" icon
+											size="small" class="rounded-circle">
+											<v-icon size="18" color="red">mdi-trash-can-outline</v-icon>
+										</v-btn>
+									</div>
+								</td>
+							</tr>
+						</template>
+					</v-data-table>
+				</v-card>
+			</div>
+		</v-expand-transition>
+
+		<!-- DIALOG CHỦ ĐỀ -->
+		<v-dialog v-model="dialogTopic" max-width="500px" persistent>
+			<v-card>
+				<v-card-title class="text-h6 text-white">
+					{{ formTopic.ChuDeID ? 'Sửa chủ đề động lực' : 'Thêm chủ đề động lực mới' }}
+				</v-card-title>
+				<v-card-text>
+					<v-text-field v-model="formTopic.TenChuDe" label="Tên chủ đề" dense outlined class="mb-3"
+						variant="outlined" bg-color="#333" />
+					<v-textarea v-model="formTopic.MoTaChuDe" label="Mô tả" rows="2" dense outlined variant="outlined"
+						bg-color="#333" />
+				</v-card-text>
+				<v-card-actions>
+					<v-spacer />
+					<v-btn color="grey" text @click="dialogTopic = false">Hủy</v-btn>
+					<v-btn color="#1da1f2" text @click="saveTopic">Lưu</v-btn>
+				</v-card-actions>
+			</v-card>
+		</v-dialog>
+
+		<!-- DIALOG TỪ VỰNG -->
+		<v-dialog v-model="dialogVocab" max-width="700px" persistent>
+			<v-card>
+				<v-card-title class="text-h6 text-white">
+					{{ formVocab.DongLucID ? 'Sửa động lực' : 'Thêm động lực' }}
+				</v-card-title>
+				<v-card-text style="color:#fff">
+					<v-row>
+						<v-col>
+							<v-textarea rows="3" label="Động lực nè" v-model="formVocab.DongLucTA" variant="outlined"
+								bg-color="#333">
+							</v-textarea>
+						</v-col>
+						<v-col>
+							<v-textarea rows="3" label="Ý nghĩa của iem nè" v-model="formVocab.DongLucTV"
+								variant="outlined" bg-color="#333">
+							</v-textarea>
+						</v-col>
+					</v-row>
+					<v-row>
+						<v-col>
+							<v-textarea rows="3" label="Từ vựng để mình học nè" v-model="formVocab.TuVung"
+								variant="outlined" bg-color="#333">
+							</v-textarea>
+						</v-col>
+					</v-row>
+				</v-card-text>
+				<v-card-actions>
+					<v-spacer />
+					<v-btn color="grey" text @click="dialogVocab = false">Hủy</v-btn>
+					<v-btn color="#1da1f2" text @click="saveVocab" :disabled="!selectedTopic.ChuDeID">Lưu</v-btn>
+				</v-card-actions>
+			</v-card>
+		</v-dialog>
+	</div>
+</template>
+
+<script>
+	export default {
+		props: ['topic', 'close'],
+		data() {
+			return {
+				topics: [],
+				selectedTopic: {},
+				searchTopic: '',
+				dialogTopic: false,
+				formTopic: { ChuDeID: 0, TenChuDe: '', MoTaChuDe: '' },
+	
+				vocabList: [],
+				searchVocab: '',
+				dialogVocab: false,
+				formVocab: { DongLucID: 0, TuVung: '', DongLucTA: '', DongLucTV: '' },
+				vocabHeaders: [
+					{ text: 'STT', value: 'index', width: '60px', align: 'center' },
+					{ text: 'Từ vựng', value: 'TuVung' },
+					{ text: 'Nghĩa TA', value: 'DongLucTA' },
+					{ text: 'Nghĩa TV', value: 'DongLucTV' },
+					{ text: 'Thao tác', value: 'actions', align: 'center' }
+				]
+			}
+		},
+		computed: {
+			sortedTopics() {
+				return [...this.topics].sort((a, b) => {
+					const nameA = (a.TenChuDe || '').trim().toLowerCase()
+					const nameB = (b.TenChuDe || '').trim().toLowerCase()
+					return nameA.localeCompare(nameB)
+				})
+			},
+			sortedVocabList() {
+				return [...this.vocabList].sort((a, b) => {
+					const wordA = (a.TuVung || '').trim().toLowerCase()
+					const wordB = (b.TuVung || '').trim().toLowerCase()
+					return wordA.localeCompare(wordB)
+				})
+			},
+			// Tìm kiếm 
+			filteredTopics() {
+				if (!this.searchTopic) return this.sortedTopics
+				return this.sortedTopics.filter(t =>
+					t.TenChuDe.toLowerCase().includes(this.searchTopic.toLowerCase())
+				)
+			}
+		},
+		mounted() {
+			this.getTopics()
+		},
+		methods: {
+			getTopics() {
+				// Tạo 2 promise
+				const topicsPromise = new Promise(resolve => {
+					ajaxCALL(vueData.v_Set.apiDomain + '/iotdev/auth/ChuDeDongLuc_Select', {
+						SearchKeyword: this.searchTopic
+					}, res => resolve(res.data || []))
+				})
+	
+				const vocabPromise = new Promise(resolve => {
+					ajaxCALL(vueData.v_Set.apiDomain + '/iotdev/auth/DongLuc_Select', {
+						ChuDeID: 0, SearchKeyword: ''
+					}, res => resolve(res.data || []))
+				})
+	
+				// Đợi cả 2 về
+				Promise.all([topicsPromise, vocabPromise])
+					.then(([topics, allVocab]) => {
+						this.topics = topics.map(t => ({
+							...t,
+							SoTu: allVocab.filter(v => v.ChuDeID == t.ChuDeID).length
+						}))
+					})
+					.catch(err => {
+						console.error('Lỗi tải dữ liệu:', err)
+						this.topics = []
+					})
+			},
+			getRainbowStyle(index) {
+				const hue = (index * 47 + Date.now() / 50) % 360 // Đổi màu từ từ
+				return {
+					'--hue': hue,
+					background: `linear-gradient(135deg,  hsla(${hue}, 60%, 25%, 0.25),  hsla(${(hue + 90) % 360}, 60%, 20%, 0.2) )`,
+					animation: `rainbow-shift 8s ease-in-out infinite`
+				}
+			},
+			selectTopic(item) {
+				this.selectedTopic = { ...item }
+				this.getVocab()
+			},
+			getVocab() {
+				if (!this.selectedTopic.ChuDeID) return
+				ajaxCALL(vueData.v_Set.apiDomain + '/iotdev/auth/DongLuc_Select', {
+					ChuDeID: this.selectedTopic.ChuDeID,
+					SearchKeyword: this.searchVocab
+				}, res => { this.vocabList = res.data || [] })
+			},
+			openAddTopic() {
+				this.formTopic = { ChuDeID: 0, TenChuDe: '', MoTaChuDe: '' }
+				this.dialogTopic = true
+			},
+			editTopic(item) {
+				this.formTopic = { ...item }
+				this.dialogTopic = true
+			},
+			saveTopic() {
+				if (!this.formTopic.TenChuDe.trim()) return alert('Nhập tên chủ đề!')
+	
+				const url = this.formTopic.ChuDeID
+					? '/iotdev/auth/ChuDeDongLuc_Update' : '/iotdev/auth/ChuDeDongLuc_Insert'
+	
+				ajaxCALL(vueData.v_Set.apiDomain + url, this.formTopic, () => {
+					this.dialogTopic = false
+					this.getTopics() // Tải lại danh sách + số từ
+					if (this.selectedTopic.ChuDeID === this.formTopic.ChuDeID) {
+						this.selectedTopic = { ...this.formTopic }
+					}
+				})
+			},
+			goToMotivation(topic) {
+				const url = `https://iotdev.zentea.vn/motivation`;
+				window.open(url, '_blank'); // hoặc _self nếu muốn mở cùng tab
+			},
+			deleteTopic(record) {
+				confirm({
+					title: `Bạn có chắc muốn xóa chủ đề này: <b><i>${record.TenChuDe}</i></b>?`,
+					action: () => { // ARROW → this = Vue instance
+						ajaxCALL(vueData.v_Set.apiDomain + '/iotdev/auht/ChuDeDongLuc_Delete', {
+							ChuDeID: record.ChuDeID
+						}, () => {
+							this.getTopics()
+							if (this.selectedTopic.ChuDeID === record.ChuDeID) {
+								this.selectedTopic = {}
+								this.vocabList = []
+							}
+						})
+					}
+				})
+			},
+			openAddVocab() {
+				this.formVocab = { DongLucID: 0, TuVung: '', DongLucTA: '', DongLucTV: '' }
+				this.dialogVocab = true
+			},
+			editVocab(item) {
+				this.formVocab = { ...item }
+				this.dialogVocab = true
+			},
+			resetSelection() {
+				this.$emit('close')
+			},
+			saveVocab() {
+				if (!this.formVocab.TuVung.trim()) return alert('Nhập từ vựng!')
+				if (!this.selectedTopic.ChuDeID) return alert('Chọn chủ đề!')
+	
+				const data = {
+					DongLucID: this.formVocab.DongLucID,
+					TuVung: this.formVocab.TuVung,
+					DongLucTA: this.formVocab.DongLucTA || null,
+					DongLucTV: this.formVocab.DongLucTV || null,
+					ChuDeID: Number(this.selectedTopic.ChuDeID) // BẮT BUỘC
+				}
+	
+				const url = this.formVocab.DongLucID ? '/iotdev/auth/DongLuc_Update' : '/iotdev/auth/DongLuc_Insert'
+	
+				ajaxCALL(vueData.v_Set.apiDomain + url, data, () => {
+					this.dialogVocab = false
+					this.getVocab()
+					this.getTopics()
+				})
+			},
+			deleteVocab(item) {
+				const $this = this
+				confirm({
+					title: 'Bạn có chắc muốn xóa từ vựng này ' + (item.TuVung.length > 0 ? "<b> <i>" + item.DongLucTA + "</i> </b>" :
+						"<b> <i>" + item.DongLucTV + "</i> </b>"),
+					action: function () {
+						ajaxCALL(vueData.v_Set.apiDomain + '/iotdev/auth/DongLuc_Delete', {
+							DongLucID: item.DongLucID
+						}, (res) => {
+							console.log(res)
+							// $this.getData()
+							$this.getVocab() // Cập nhật bảng
+							$this.getTopics()
+						})
+					},
+				})
+			},
+			goToSearch(topic) {
+				const url = `https://iotdev.zentea.vn/tu-dien-anh-viet`;
+				window.open(url, '_blank'); // hoặc _self nếu muốn mở cùng tab
+			},
+			speakText(text) {
+				const vietnameseRegex =
+					/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]/;
+				if (!("speechSynthesis" in window)) return;
+				const words = text.split(/\s+/);
+				const englishWords = words.filter(w => !vietnameseRegex.test(w));
+				const filteredText = englishWords.join(" ");
+				if (!filteredText.trim()) {
+					console.log("Không có tiếng Anh để đọc");
+					return;
+				}
+				const utterance = new SpeechSynthesisUtterance(filteredText);
+				utterance.lang = "en-US";
+				utterance.rate = 0.6;
+				utterance.pitch = 1;
+				window.speechSynthesis.cancel();
+				window.speechSynthesis.speak(utterance);
+			}
+		}
+	}
+</script>
