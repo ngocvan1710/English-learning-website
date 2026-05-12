@@ -1,0 +1,141 @@
+.v-application,
+body {
+    margin: 0;
+    padding: 0;
+    background: #0d1117;
+    color: #e6edf3;
+    min-height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+    overflow-x: hidden;
+}
+
+.cloud-table thead {
+    display: none;
+}
+
+.cloud-row:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), 0 0 20px rgba(138, 43, 226, 0.2);
+    border-color: rgba(138, 43, 226, 0.5);
+}
+
+.vocab-word {
+    min-width: 130px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #79c0ff;
+    z-index: 3;
+}
+
+.vocab-content {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    z-index: 3;
+}
+
+.v-btn {
+    border-radius: 12px !important;
+    text-transform: none !important;
+    font-weight: 600 !important;
+    font-size: 15px !important;
+    letter-spacing: normal !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+@media (max-width: 599px) {
+    .gap-4 {
+        gap: 12px !important;
+    }
+}
+
+h2,
+.v-row,
+.cloud-table {
+    position: relative;
+    z-index: 2;
+    background: transparent;
+}
+
+.uni-background {
+    position: relative;
+    min-height: 100vh;
+    background: #000;
+    overflow: hidden;
+    background-image: url(/_cdn/iot-dev/star-bg.gif);
+}
+
+.top-bar {
+    position: relative;
+    z-index: 2;
+    padding: 2rem 1rem 1rem;
+    text-align: center;
+}
+
+.v-card,
+.v-table {
+    background-color: #161b226e !important;
+}
+
+.chip-animated {
+    transition: 0.25s ease;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+}
+
+.chip-animated:hover {
+    filter: brightness(1.15);
+    transform: translateY(-2px);
+}
+
+.correct-chip {
+    background: linear-gradient(45deg, #4caf50, #69f0ae) !important;
+    color: white !important;
+    animation: pulse 0.6s ease;
+    transform: scale(1.08);
+}
+
+.wrong-chip {
+    background: linear-gradient(45deg, #f44336, #ff8a80) !important;
+    color: white !important;
+    animation: shake 0.5s ease;
+}
+
+.bg-black-50 {
+    background: rgba(0, 0, 0, 0.5) !important;
+}
+
+.border-b {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.15);
+    }
+
+    100% {
+        transform: scale(1.08);
+    }
+}
+
+@keyframes shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-8px);
+    }
+
+    75% {
+        transform: translateX(8px);
+    }
+}
