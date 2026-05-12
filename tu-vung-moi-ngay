@@ -1,0 +1,405 @@
+<template>
+	<div>
+		<!-- Nền sao -->
+		<div class="stars">
+			<div class="star" v-for="n in 50" :key="n" :style="getStarStyle(n)"></div>
+		</div>
+
+		<div class="stars">
+			<!-- Sao tĩnh -->
+			<div class="star" v-for="n in 80" :key="'star-'+n" :style="getStarStyle(n)"></div>
+
+			<!-- Sao băng (tạo 3 cái cho ngẫu nhiên) -->
+			<div class="meteor" v-for="m in 3" :key="'meteor-'+m" :style="getMeteorStyle(m)"></div>
+		</div>
+		<div>
+			<!-- Header + Search -->
+			<h2 class="text-h4 font-weight-bold text-white py-4 text-center text-md-start col-12">
+				DAILY VOCABULARY
+			</h2>
+
+			<v-row class="mb-6 px-4" align="center">
+				<!-- Thanh tìm kiếm real-time -->
+				<v-col cols="12" lg="4">
+					<v-text-field v-model="SearchKeyWord" label="Tìm theo từ vựng..." single-line density="compact"
+						class="cloud-input" clearable hide-details append-inner-icon="magnify" @keyup="debouncedSearch"
+						@click:append-inner="getData" :loading="isSearching" />
+				</v-col>
+
+				<!-- Nút ADD NEW -->
+				<v-col cols="12" lg="2">
+					<v-btn @click="opDialog = true" block color="#238636" class="text-white" style="height: 40px;">
+						<uc-icon name="plus" /> ADD NEW
+					</v-btn>
+				</v-col>
+			</v-row>
+			<!-- Bảng đám mây -->
+			<v-data-table :headers="headers" :items="menuList" :items-per-page="-1" :hide-default-footer="true"
+				class="cloud-table" density="comfortable">
+				<!-- HEADER: Đám mây xanh với chữ xanh -->
+				<template v-slot:header>
+					<tr class="cloud-row header-cloud">
+						<th colspan="12" class="px-6 py-4">
+							<div class="d-flex flex-wrap gap-3">
+								<span v-for="h in headers" :key="h.value" class="header-title">
+									{{ h.title }}
+								</span>
+							</div>
+						</th>
+					</tr>
+				</template>
+
+				<!-- ITEM: Mỗi hàng là 1 đám mây -->
+				<template v-slot:item="{ item, index }">
+					<tr class="cloud-row" :style="getCloudStyle(index)">
+						<td colspan=" 12" class="px-6 py-5">
+							<div class="d-flex align-center justify-space-between flex-wrap gap-4">
+								<!-- Từ vựng -->
+								<div class="vocab-word">
+									<strong>{{ item.TuVung }}</strong>
+								</div>
+
+								<!-- Nội dung -->
+								<div class="vocab-content">
+									<div v-for="h in headers.slice(1, -1)" :key="h.value" class="content-item">
+										<p class="label">{{ h.title }}:</p>
+										<span class="value">{{ item[h.value] || '-' }}</span>
+									</div>
+								</div>
+
+								<!-- Nút thao tác -->
+								<div class="action-buttons">
+									<v-chip @click="onUpdate(item)" small color="#58a6ff" dark
+										class="mr-2">Update</v-chip>
+									<v-chip @click="onDelete(item)" small color="#f85149" dark>Delete</v-chip>
+								</div>
+							</div>
+						</td>
+					</tr>
+				</template>
+			</v-data-table>
+
+			<v-dialog v-model="opDialog" persistent max-width="600px">
+				<v-card>
+					<v-card-title>
+						<span class="text-h5">Thêm mới từ vựng</span>
+					</v-card-title>
+					<v-card-text>
+						<v-row>
+							<v-col>
+								<v-text-field label="TuVung" v-model="formData.TuVung">
+								</v-text-field>
+							</v-col>
+						</v-row>
+						<v-row>
+							<v-col>
+								<v-text-field label="Nghĩa đen tiếng anh" v-model="formData.NghiaDenTA">
+								</v-text-field>
+							</v-col>
+							<v-col>
+								<v-text-field label="Nghĩa đen tiếng việt" v-model="formData.NghiaDenTV">
+								</v-text-field>
+							</v-col>
+						</v-row>
+						<v-row>
+							<v-col>
+								<v-text-field label="Nghĩa bóng" v-model="formData.NghiaBong">
+								</v-text-field>
+							</v-col>
+							<v-col>
+								<v-text-field label="Nghĩa bóng tiếng anh" v-model="formData.NghiaBongTA">
+								</v-text-field>
+							</v-col>
+						</v-row>
+						<v-row>
+							<v-col>
+								<v-text-field label="Ví dụ nghĩa bóng" v-model="formData.ViDuNghiaBong">
+								</v-text-field>
+							</v-col>
+							<v-col>
+								<v-text-field label="Ví dụ nghĩa đen" v-model="formData.ViDuNghiaDen">
+								</v-text-field>
+							</v-col>
+						</v-row>
+						<v-row>
+							<v-col>
+								<v-text-field label="Từ trái nghĩa" v-model="formData.TuTraiNghia">
+								</v-text-field>
+								<v-col>
+									<v-text-field label="Ví dụ từ trái nghĩa" v-model="formData.ViDuTuTraiNghia">
+									</v-text-field>
+								</v-col>
+							</v-col>
+						</v-row>
+						<v-row>
+							<v-col>
+								<v-text-field label="Từ đồng nghĩa" v-model="formData.TuDongNghia">
+								</v-text-field>
+							</v-col>
+							<v-col>
+								<v-text-field label="Ví dụ từ đồng nghĩa" v-model="formData.ViDuTuDongNghia">
+								</v-text-field>
+							</v-col>
+						</v-row>
+					</v-card-text>
+					<v-card-actions>
+						<v-btn color="blue darken-1" text @click="opDialog = false">
+							Đóng
+						</v-btn>
+						<v-btn color="blue darken-1" text @click="addData">
+							Lưu
+						</v-btn>
+					</v-card-actions>
+				</v-card>
+			</v-dialog>
+		</div>
+		<v-dialog v-model="opDialogEdit" persistent max-width="600px">
+			<v-card class="mt-1">
+				<v-card-title>
+					<span class="text-h5">Cập nhật từ mới</span>
+				</v-card-title>
+				<v-card-text>
+					<v-row>
+						<v-col>
+							<v-text-field label="TuVung" v-model="formData.TuVung">
+							</v-text-field>
+						</v-col>
+					</v-row>
+					<v-row>
+						<v-col>
+							<v-text-field label="Nghĩa đen tiếng anh" v-model="formData.NghiaDenTA">
+							</v-text-field>
+						</v-col>
+						<v-col>
+							<v-text-field label="Nghĩa đen tiếng việt" v-model="formData.NghiaDenTV">
+							</v-text-field>
+						</v-col>
+					</v-row>
+					<v-row>
+						<v-col>
+							<v-text-field label="Nghĩa bóng" v-model="formData.NghiaBong">
+							</v-text-field>
+						</v-col>
+						<v-col>
+							<v-text-field label="Nghĩa bóng tiếng anh" v-model="formData.NghiaBongTA">
+							</v-text-field>
+						</v-col>
+					</v-row>
+					<v-row>
+						<v-col>
+							<v-text-field label="Ví dụ nghĩa bóng" v-model="formData.ViDuNghiaBong">
+							</v-text-field>
+						</v-col>
+						<v-col>
+							<v-text-field label="Ví dụ nghĩa đen" v-model="formData.ViDuNghiaDen">
+							</v-text-field>
+						</v-col>
+					</v-row>
+					<v-row>
+						<v-col>
+							<v-text-field label="Từ trái nghĩa" v-model="formData.TuTraiNghia">
+							</v-text-field>
+							<v-col>
+								<v-text-field label="Ví dụ từ trái nghĩa" v-model="formData.ViDuTuTraiNghia">
+								</v-text-field>
+							</v-col>
+						</v-col>
+					</v-row>
+					<v-row>
+						<v-col>
+							<v-text-field label="Từ đồng nghĩa" v-model="formData.TuDongNghia">
+							</v-text-field>
+						</v-col>
+						<v-col>
+							<v-text-field label="Ví dụ từ đồng nghĩa" v-model="formData.ViDuTuDongNghia">
+							</v-text-field>
+						</v-col>
+					</v-row>
+				</v-card-text>
+				<v-card-actions>
+					<v-spacer></v-spacer>
+					<v-btn color="blue darken-1" text @click="opDialogEdit = false">
+						Đóng
+					</v-btn>
+					<v-btn color="blue darken-1" text @click="onSaveUpdate">
+						Lưu
+					</v-btn>
+				</v-card-actions>
+			</v-card>
+		</v-dialog>
+	</div>
+</template>
+<script>
+	export default {
+		props: [],
+		data() {
+			return {
+				menuList: [],
+				menuLitstGroup: [],
+				headers: [
+					{ title: 'Từ vựng', value: 'TuVung', width: 200 },
+					{ title: 'Nghĩa đen tiếng anh', value: 'NghiaDenTA', width: 400 },
+					{ title: 'Nghĩa đen tiếng việt', value: 'NghiaDenTV', width: 200 },
+					{ title: 'Nghĩa bóng', value: 'NghiaBong', width: 200 },
+					{ title: 'Nghĩa bóng tiếng anh', value: 'NghiaBongTA', width: 200 },
+					{ title: 'Ví dụ nghĩa bóng', value: 'ViDuNghiaBong', width: 200 },
+					{ title: 'Ví dụ nghĩa đen', value: 'ViDuNghiaDen', width: 200 },
+					{ title: 'Từ trái nghĩa', value: 'TuTraiNghia', width: 250 },
+					{ title: 'Ví dụ từ trái nghĩa', value: 'ViDuTuTraiNghia', width: 300 },
+					{ title: 'Từ đồng nghĩa', value: 'TuDongNghia', width: 200 },
+					{ title: 'Ví dụ từ đồng nghĩa', value: 'ViDuTuDongNghia', width: 300 },
+					{ title: "Thao tác", value: "ThaoTac", align: "center", width: 200 }
+				],
+				opDialog: false,
+				opDialogEdit: false,
+				formData: {
+					TiengAnhID: 0,
+					TuVung: "",
+					NghiaDenTA: "",
+					NghiaDenTV: "",
+					NghiaBong: "",
+					NghiaBongTA: "",
+					ViDuNghiaBong: "",
+					ViDuNghiaDen: "",
+					TuTraiNghia: "",
+					ViDuTuTraiNghia: "",
+					TuDongNghia: "",
+					ViDuTuDongNghia: "",
+				},
+				SearchKeyWord: ''
+			}
+		},
+		mounted() {
+			this.getData()
+		},
+		computed: {},
+		watch: {},
+		methods: {
+			getData() {
+				ajaxCALL(vueData.v_Set.apiDomain + '/iotdev/TiengAnh_Select', { SearchKeyword: this.SearchKeyWord }, (res) => {
+					this.menuList = res.data
+				})
+			},
+			addData() {
+				ajaxCALL(vueData.v_Set.apiDomain + '/iotdev/TiengAnh_Insert', {
+					TuVung: this.formData.TuVung,
+					NghiaDenTA: this.formData.NghiaDenTA,
+					NghiaDenTV: this.formData.NghiaDenTV,
+					NghiaBong: this.formData.NghiaBong,
+					NghiaBongTA: this.formData.NghiaBongTA,
+					ViDuNghiaBong: this.formData.ViDuNghiaBong,
+					ViDuNghiaDen: this.formData.ViDuNghiaDen,
+					TuTraiNghia: this.formData.TuTraiNghia,
+					ViDuTuTraiNghia: this.formData.ViDuTuTraiNghia,
+					TuDongNghia: this.formData.TuDongNghia,
+					ViDuTuDongNghia: this.formData.ViDuTuDongNghia,
+	
+				}, (res) => {
+					this.opDialog = false
+					this.getData()
+				})
+			},
+			onUpdate(record) {
+				console.log(record)
+				this.opDialogEdit = true
+				this.formData.TiengAnhID = record.TiengAnhID
+				this.formData.TuVung = record.TuVung
+				this.formData.NghiaDenTA = record.NghiaDenTA
+				this.formData.NghiaDenTV = record.NghiaDenTV
+				this.formData.NghiaBong = record.NghiaBong
+				this.formData.NghiaBongTA = record.NghiaBongTA
+				this.formData.ViDuNghiaBong = record.ViDuNghiaBong
+				this.formData.ViDuNghiaDen = record.ViDuNghiaDen
+				this.formData.TuTraiNghia = record.TuTraiNghia
+				this.formData.ViDuTuTraiNghia = record.ViDuTuTraiNghia
+				this.formData.TuDongNghia = record.TuDongNghia
+				this.formData.ViDuTuDongNghia = record.ViDuTuDongNghia
+			},
+			onSaveUpdate() {
+				const $this = this
+				confirm({
+					title: 'Bạn có chắc muốn sửa từ vựng ' + "<b> <i>" + $this.formData.TenNhaCungCap + "</i> </b>" + 'này khum ?',
+					action: function () {
+						ajaxCALL(vueData.v_Set.apiDomain + '/iotdev/TiengAnh_Update', {
+							TiengAnhID: $this.formData.TiengAnhID,
+							TuVung: $this.formData.TuVung,
+							NghiaDenTA: $this.formData.NghiaDenTA,
+							NghiaDenTV: $this.formData.NghiaDenTV,
+							NghiaBong: $this.formData.NghiaBong,
+							NghiaBongTA: $this.formData.NghiaBongTA,
+							ViDuNghiaBong: $this.formData.ViDuNghiaBong,
+							ViDuNghiaDen: $this.formData.ViDuNghiaDen,
+							TuTraiNghia: $this.formData.TuTraiNghia,
+							ViDuTuTraiNghia: $this.formData.ViDuTuTraiNghia,
+							TuDongNghia: $this.formData.TuDongNghia,
+							ViDuTuDongNghia: $this.formData.ViDuTuDongNghia,
+						}, (res) => {
+							$this.opDialogEdit = false
+							$this.getData()
+						})
+					},
+				})
+			},
+			onDelete(record) {
+				const $this = this
+				confirm({
+					title: 'Bạn có chắc muốn xóa nhà cung cấp ' + (record.TuVung.length > 0 ? "<b> <i>" + record.NghiaDenTV + "</i> </b>" : "<b> <i>" + record.NghiaBong + "</i> </b>"),
+					action: function () {
+						ajaxCALL(vueData.v_Set.apiDomain + '/iotdev/TiengAnh_Delete', {
+							TiengAnhID: record.TiengAnhID
+						}, (res) => {
+							console.log(res)
+							$this.getData()
+						})
+					},
+				})
+			},
+			getStarStyle(n) {
+				const size = Math.random() * 3 + 1;
+				const duration = Math.random() * 3 + 2;
+				const delay = Math.random() * 3;
+				const top = Math.random() * 100;
+				const left = Math.random() * 100;
+				return {
+					width: size + 'px',
+					height: size + 'px',
+					top: top + '%',
+					left: left + '%',
+					animationDuration: duration + 's',
+					animationDelay: delay + 's'
+				};
+			},
+	
+			// THÊM HÀM NÀY – CHUYỂN MÀU MÂY ĐỘNG
+			getCloudStyle(index) {
+				const hue = (index * 37) % 360
+				return {
+					background: `linear-gradient(135deg, hsla(${hue}, 70%, 20%, 0.3), hsla(${(hue + 60) % 360}, 70%, 15%, 0.2))`,
+					animation: `cloudMove ${12 + index * 0.8}s linear infinite`,
+					animationDelay: `${index * 0.5}s`,
+					position: 'relative',
+					overflow: 'hidden'
+				}
+			},
+			getMeteorStyle(index) {
+				const startX = Math.random() * 100; // từ 0% → 100%
+				const endX = startX - 40 - Math.random() * 60; // bay chéo về trái
+				const duration = 1.5 + Math.random() * 1.5; // 1.5s → 3s
+				const delay = Math.random() * 8; // xuất hiện ngẫu nhiên
+				const topStart = -10; // ngoài màn hình
+				const size = 2 + Math.random() * 2; // độ dày vệt
+	
+				return {
+					'--start-x': `${startX}%`,
+					'--end-x': `${endX}%`,
+					'--duration': `${duration}s`,
+					'--delay': `${delay}s`,
+					'--size': `${size}px`,
+					top: `${topStart}%`,
+					animation: `meteor ${duration}s linear ${delay}s infinite`
+				};
+			}
+	
+		}
+	}
+</script>
